@@ -1,0 +1,8 @@
+.env
+.pytest_cache/
+.solcx/
+.venv/
+__pycache__/
+*.pyc
+custody_demo.db
+custody_test.db
