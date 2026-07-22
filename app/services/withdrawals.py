@@ -15,6 +15,7 @@ from app.services.chain import get_adapter
 from app.services.kyt import MockKYTProvider
 from app.services.ledger import get_asset, get_client_balance, wallet_by_kind
 from app.services.policy import validate_withdrawal_policy
+from app.services.rwa_onchain import is_rwa_custody_asset, transfer_rwa_from_custody
 from app.services.signer import MockMPCSigner
 from app.services.travel_rule import build_travel_rule_message
 from app.services.wallets import ensure_hot_liquidity
@@ -140,21 +141,41 @@ def process_withdrawal(db: Session, *, withdrawal_id: int, actor_id: int) -> dic
     row.state = "SIGNING"
     liquidity = ensure_hot_liquidity(db, asset_id=asset.id, amount=amount, actor_id=actor_id)
     hot = wallet_by_kind(db, asset.id, "HOT")
-    adapter = get_adapter(asset.symbol)
-    network_payload = adapter.build_transaction(
-        symbol=asset.symbol,
-        amount=amount,
-        destination=destination.address,
-    )
+    if is_rwa_custody_asset(db, asset.symbol):
+        network_payload = {
+            "model": "EVM_ERC20_RWA_TRANSFER_REQUEST",
+            "asset": asset.symbol,
+            "amount": str(amount),
+            "destination": destination.address,
+        }
+    else:
+        adapter = get_adapter(asset.symbol)
+        network_payload = adapter.build_transaction(
+            symbol=asset.symbol,
+            amount=amount,
+            destination=destination.address,
+        )
     signing_payload = json.dumps(network_payload, sort_keys=True, default=str)
     signed = MockMPCSigner().sign(signing_payload, ["mpc-node-a", "mpc-node-b"])
-    broadcast = adapter.broadcast(signed.signature, asset.confirmations_required, network_payload)
+    if is_rwa_custody_asset(db, asset.symbol):
+        broadcast = transfer_rwa_from_custody(
+            db,
+            asset_symbol=asset.symbol,
+            to_address=destination.address,
+            amount_units=amount,
+        )
+        tx_hash = broadcast["tx_hash"]
+        transaction_payload = broadcast
+    else:
+        broadcast = adapter.broadcast(signed.signature, asset.confirmations_required, network_payload)
+        tx_hash = broadcast.tx_hash
+        transaction_payload = broadcast.__dict__
     hot.balance = Decimal(hot.balance) - amount
     balance = get_client_balance(db, row.client_id, asset.id)
     balance.pending = Decimal(balance.pending) - amount
     row.signing_payload = signing_payload
     row.signature = signed.signature
-    row.tx_hash = broadcast.tx_hash
+    row.tx_hash = tx_hash
     row.state = "COMPLETED"
     row.completed_at = datetime.now(timezone.utc)
     append_audit(
@@ -170,7 +191,7 @@ def process_withdrawal(db: Session, *, withdrawal_id: int, actor_id: int) -> dic
                 "participants": signed.participating_nodes,
                 "threshold": signed.threshold,
             },
-            "transaction": broadcast.__dict__,
+            "transaction": transaction_payload,
         },
     )
     db.commit()

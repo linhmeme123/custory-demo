@@ -16,8 +16,10 @@ from app.schemas import (
     DepositRequest,
     DepositConfirmationRequest,
     ProcessWithdrawalRequest,
+    RWAConfirmCustodyDepositRequest,
     RWADeployRequest,
     RWAInvestorEligibilityRequest,
+    RWAInvestorDepositTransferRequest,
     RWAMintRequest,
     RWARequest,
     StakingRequest,
@@ -34,11 +36,14 @@ from app.services.ledger import client_liability_total, custody_onchain_total, g
 from app.services.reconciliation import reconcile
 from app.services.rwa import issue_rwa
 from app.services.rwa_onchain import (
+    confirm_rwa_custody_deposit,
     deploy_rwa_contract,
     mint_rwa_tokens,
     onchain_config_status,
+    rwa_custody_instructions,
     rwa_onchain_status,
     set_investor_eligibility,
+    transfer_rwa_to_custody_from_investor,
 )
 from app.services.staking import create_staking_position
 from app.services.technology_demo import run_technology_showcase, technology_catalog
@@ -236,6 +241,29 @@ def rwa_mint(rwa_asset_id: int, request: RWAMintRequest, db: Session = Depends(g
 @app.get("/rwa/{rwa_asset_id}/onchain/status")
 def rwa_status(rwa_asset_id: int, db: Session = Depends(get_db)) -> dict:
     return rwa_onchain_status(db, rwa_asset_id=rwa_asset_id)
+
+
+@app.get("/rwa/{rwa_asset_id}/custody/instructions")
+def rwa_deposit_instructions(rwa_asset_id: int, db: Session = Depends(get_db)) -> dict:
+    return rwa_custody_instructions(db, rwa_asset_id=rwa_asset_id)
+
+
+@app.post("/rwa/{rwa_asset_id}/custody/deposits/confirm")
+def rwa_confirm_deposit(
+    rwa_asset_id: int,
+    request: RWAConfirmCustodyDepositRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    return confirm_rwa_custody_deposit(db, rwa_asset_id=rwa_asset_id, **request.model_dump())
+
+
+@app.post("/rwa/{rwa_asset_id}/custody/deposits/transfer-from-investor")
+def rwa_transfer_deposit_from_investor(
+    rwa_asset_id: int,
+    request: RWAInvestorDepositTransferRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    return transfer_rwa_to_custody_from_investor(db, rwa_asset_id=rwa_asset_id, **request.model_dump())
 
 
 @app.get("/reconciliation")

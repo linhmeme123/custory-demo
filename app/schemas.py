@@ -76,6 +76,16 @@ class RWAMintRequest(BaseModel):
     amount_units: Decimal = Field(gt=0)
 
 
+class RWAConfirmCustodyDepositRequest(BaseModel):
+    client_id: int
+    actor_id: int
+
+
+class RWAInvestorDepositTransferRequest(BaseModel):
+    investor_private_key: str
+    amount_units: Decimal = Field(gt=0)
+
+
 class WhitelistWalletRequest(BaseModel):
     client_id: int
     asset_symbol: str

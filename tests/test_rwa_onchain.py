@@ -6,7 +6,11 @@ from app.main import app
 client = TestClient(app)
 
 
-def test_rwa_onchain_config_is_visible_without_testnet_credentials() -> None:
+def test_rwa_onchain_config_is_visible_without_testnet_credentials(monkeypatch) -> None:
+    monkeypatch.delenv("EVM_TESTNET_RPC_URL", raising=False)
+    monkeypatch.delenv("EVM_DEPLOYER_PRIVATE_KEY", raising=False)
+    monkeypatch.delenv("EVM_CHAIN_ID", raising=False)
+
     result = client.get("/rwa/onchain/config").json()
 
     assert result["configured"] is False
