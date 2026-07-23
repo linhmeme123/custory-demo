@@ -68,3 +68,27 @@ For the Swagger-only investor deposit helper, use a testnet investor private key
 only. It signs an ERC-20 transfer from the investor address into the configured
 custody deposit address, then the confirm endpoint observes the token balance
 and credits the custody ledger.
+
+## Traceability về requirement và dự án
+
+| Nhóm yêu cầu | Flow liên quan | Bằng chứng trong dự án |
+|---|---|---|
+| Institutional onboarding, RBAC Root/Admin/Operator/Viewer | UC-01 | `Client`, `User`, role/scope checks trong `authz.py`; seed users trong `seed.py` |
+| AML/KYC/KYT wallet screening | UC-02, UC-03, UC-05 | `kyt.py`, wallet whitelist và deposit/withdrawal gates |
+| 80% cold storage policy | UC-04 | `policy.py` và `rebalance_wallets()` |
+| Dual-admin withdrawal approval | UC-05 | `Approval` unique approver constraint và `approve_withdrawal()` |
+| HSM/MPC key management boundary | UC-05, UC-06 | `MockMPCSigner`, quorum 2-of-3; demo HMAC không phải MPC thật |
+| Multi-chain BTC/ETH/SOL/AVAX/XRP/MATIC(POL) | UC-06 | Chain adapters và tests cho UTXO/EVM/Solana/XRPL |
+| Staking infrastructure | UC-07 | `StakingPosition` và `create_staking_position()` |
+| RWA tokenization | UC-08 | `InstitutionalRWA.sol`, `rwa.py`, `rwa_onchain.py` |
+| Audit trail và reporting | UC-09, UC-10 | `AuditLog`, hash chaining trong `audit.py`, dashboard/reconciliation views |
+| Incident response | UC-11 | Requirement có yêu cầu; chưa có workflow trong demo |
+
+## Ranh giới demo và production
+
+1. `MockMPCSigner` dùng HMAC cho minh họa, không phải MPC/HSM và không được dùng với tiền thật.
+2. KYT là provider mock, không gọi Elliptic/CertiK/Chainalysis thật.
+3. Hot/warm/cold và sweep chủ yếu là wallet projection; chưa có key ceremony, air gap hoặc on-chain transfer thật cho tài sản thường.
+4. Blockchain adapters mô phỏng build/broadcast/finality, ngoại trừ RWA có khả năng chạy EVM testnet khi cấu hình.
+5. Audit hash chain giúp phát hiện chỉnh sửa theo chuỗi, nhưng production vẫn cần WORM storage, access controls, retention, external anchoring và SIEM.
+6. Onboarding, KYB, regulator reporting, case management, incident response và đa ngôn ngữ UI chưa được triển khai trong demo.
